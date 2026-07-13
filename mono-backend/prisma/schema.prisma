@@ -1,0 +1,335 @@
+// ----------------------------------------------------------------
+// DATABASE CONFIGURATION
+// ----------------------------------------------------------------
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ----------------------------------------------------------------
+// Enums (Data Integrity & Type Safety)
+// ----------------------------------------------------------------
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  STRIPE
+  CASH_ON_DELIVERY
+}
+
+enum TryOnStatus {
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+// ----------------------------------------------------------------
+// Phase 1: Base Models
+// ----------------------------------------------------------------
+
+model Role {
+  id          String  @id @default(uuid())
+  name        String  @unique // e.g., "ADMIN", "CUSTOMER"
+  description String? // e.g., "Full access to dashboard"
+  users       User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id          String    @id @default(uuid())
+  firstName   String
+  lastName    String
+  email       String    @unique
+  password    String
+  avatar      String? // For profile dashboard view
+  isActive    Boolean   @default(true) // For blocking users without deleting them
+  lastLoginAt DateTime? // Useful tracking for dashboard analytics
+
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  wishlist       Wishlist? // Strictly One-to-One: One unique wishlist per user
+  cart           Cart? // Strictly One-to-One: One unique cart per user
+  orders         Order[]
+  tryOnHistories AITryOnHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roleId])
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  image       String? // For category display in frontend
+  products    Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Collection {
+  id          String              @id @default(uuid())
+  name        String              @unique
+  slug        String              @unique
+  description String?
+  image       String? // Banner image for homepage drops
+  isFeatured  Boolean             @default(false)
+  products    ProductCollection[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------
+// Phase 2: Catalog Models
+// ----------------------------------------------------------------
+
+model Product {
+  id               String  @id @default(uuid())
+  sku              String  @unique
+  name             String
+  slug             String  @unique
+  description      String  @db.Text
+  price            Decimal @db.Decimal(10, 2)
+  brand            String? @default("MONO")
+  material         String?
+  careInstructions String? @db.Text
+  isFeatured       Boolean @default(false)
+  isActive         Boolean @default(true)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  collections    ProductCollection[]
+  images         ProductImage[]
+  variants       ProductVariant[]
+  wishlistItems  WishlistItem[]
+  tryOnHistories AITryOnHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([categoryId])
+}
+
+model ProductCollection {
+  productId    String
+  collectionId String
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([productId, collectionId])
+  @@index([collectionId])
+}
+
+model ProductImage {
+  id           String  @id @default(uuid())
+  url          String
+  altText      String?
+  isMain       Boolean @default(false)
+  displayOrder Int     @default(0)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  variants ProductVariant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+}
+
+model Color {
+  id       String           @id @default(uuid())
+  name     String           @unique
+  hexCode  String
+  variants ProductVariant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Size {
+  id       String           @id @default(uuid())
+  name     String           @unique
+  variants ProductVariant[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductVariant {
+  id      String   @id @default(uuid())
+  sku     String   @unique
+  stock   Int      @default(0)
+  price   Decimal? @db.Decimal(10, 2)
+  barcode String?  @unique
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  colorId String
+  color   Color  @relation(fields: [colorId], references: [id])
+
+  sizeId String
+  size   Size   @relation(fields: [sizeId], references: [id])
+
+  imageId String?
+  image   ProductImage? @relation(fields: [imageId], references: [id], onDelete: SetNull)
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, colorId, sizeId])
+  @@index([productId])
+  @@index([colorId])
+  @@index([sizeId])
+  @@index([imageId])
+}
+
+// ----------------------------------------------------------------
+// Phase 3: Commerce Models (Wishlist, Cart, Orders)
+// ----------------------------------------------------------------
+
+model Wishlist {
+  id     String         @id @default(uuid())
+  userId String         @unique
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items  WishlistItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WishlistItem {
+  id         String   @id @default(uuid())
+  wishlistId String
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([wishlistId, productId])
+  @@index([wishlistId])
+  @@index([productId])
+}
+
+model Cart {
+  id     String     @id @default(uuid())
+  userId String     @unique
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items  CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CartItem {
+  id       String @id @default(uuid())
+  quantity Int    @default(1)
+
+  cartId String
+  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, variantId])
+  @@index([cartId])
+  @@index([variantId])
+}
+
+model Order {
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  status          OrderStatus   @default(PENDING)
+  shippingAddress String        @db.Text
+  paymentStatus   PaymentStatus @default(UNPAID)
+  paymentMethod   PaymentMethod
+
+  userId String
+  user   User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items  OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model OrderItem {
+  id       String  @id @default(uuid())
+  quantity Int
+  price    Decimal @db.Decimal(10, 2)
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([variantId])
+}
+
+// ----------------------------------------------------------------
+// Phase 4: AI Try-On Models
+// ----------------------------------------------------------------
+
+model AITryOnHistory {
+  id             String      @id @default(uuid())
+  userImage      String
+  generatedImage String
+  status         TryOnStatus @default(PROCESSING)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([productId])
+}
