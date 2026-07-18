@@ -6,7 +6,7 @@
  * Identical structure to men's collection detail — only content differs.
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -16,8 +16,8 @@ import { Typography } from '@/components/ui/Typography';
 import { Breadcrumb } from '@/components/ui/Breadcrumb';
 import { ProductCard } from '@/components/cards/ProductCard';
 import Image from 'next/image';
-import { collections } from '@/data/collections';
-import { products } from '@/data/products';
+import { getCollections } from '@/services/collection.service';
+import { getProducts } from '@/services/product.service';
 import { gsap } from '@/animations/gsap.config';
 import {
   SCROLL_START,
@@ -33,17 +33,37 @@ export default function WomenCollectionPage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const collection = collections.find((c) => c.slug === slug);
-  const collectionProducts = products.filter(
-    (p) => p.collection === slug && p.category === 'women'
-  );
+  const [collection, setCollection] = useState<any>(null);
+  const [displayProducts, setDisplayProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const displayProducts = collectionProducts.length > 0
-    ? collectionProducts
-    : products.filter((p) => p.collection === slug);
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [colRes, prodRes] = await Promise.all([
+          getCollections(),
+          getProducts({ collection: slug }),
+        ]);
+        const cols: any[] = (colRes.data as any).data || [];
+        const found = cols.find((c: any) => c.slug === slug);
+        setCollection(found || null);
+        const prods: any[] = (prodRes as any).data?.data || [];
+        setDisplayProducts(prods);
+      } catch (err) {
+        setError('Failed to load collection.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, [slug]);
 
   // Hero animations
   useEffect(() => {
+    if (isLoading || !collection) return;
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ delay: 0.2 });
 
@@ -65,10 +85,11 @@ export default function WomenCollectionPage() {
     }, heroRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [slug, isLoading, collection]);
 
   // Product cards stagger
   useEffect(() => {
+    if (isLoading || displayProducts.length === 0) return;
     const ctx = gsap.context(() => {
       const cards = gridRef.current?.querySelectorAll('.product-card-item');
       if (cards && cards.length > 0) {
@@ -88,9 +109,9 @@ export default function WomenCollectionPage() {
     }, gridRef);
 
     return () => ctx.revert();
-  }, [slug]);
+  }, [slug, isLoading, displayProducts]);
 
-  if (!collection) {
+  if (isLoading) {
     return (
       <>
         <Navbar />
@@ -98,12 +119,26 @@ export default function WomenCollectionPage() {
           <Section spacing="large" className="pt-[120px]">
             <Container>
               <div className="text-center py-20">
-                <Typography variant="h2" className="mb-4">
-                  Collection not found
-                </Typography>
-                <Typography variant="body" muted>
-                  The collection you're looking for doesn't exist.
-                </Typography>
+                <Typography variant="body" muted>Loading collection...</Typography>
+              </div>
+            </Container>
+          </Section>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (error || !collection) {
+    return (
+      <>
+        <Navbar />
+        <main>
+          <Section spacing="large" className="pt-[120px]">
+            <Container>
+              <div className="text-center py-20">
+                <Typography variant="h2" className="mb-4">{error ? 'Error' : 'Collection not found'}</Typography>
+                <Typography variant="body" muted>{error || "The collection you're looking for doesn't exist."}</Typography>
               </div>
             </Container>
           </Section>

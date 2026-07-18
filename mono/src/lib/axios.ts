@@ -1,9 +1,7 @@
 import axios from 'axios';
 
-/**
- * Axios instance pre-configured for future backend integration.
- * Base URL will point to the Express API server.
- */
+export const TOKEN_KEY = 'mono_token';
+
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
   timeout: 10000,
@@ -12,11 +10,10 @@ const api = axios.create({
   },
 });
 
-// Request interceptor — attach JWT token if available
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('mono_token');
+      const token = localStorage.getItem(TOKEN_KEY);
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -26,15 +23,12 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor — handle common errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    // Centralized 401 handling — no redirect, caller decides what to do
     if (error.response?.status === 401) {
-      // Handle unauthorized — clear token, redirect to login
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('mono_token');
-      }
+      return Promise.reject(error);
     }
     return Promise.reject(error);
   }

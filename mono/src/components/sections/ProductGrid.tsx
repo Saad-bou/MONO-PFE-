@@ -5,20 +5,39 @@ import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
 import { Typography } from '@/components/ui/Typography';
 import { ProductCard } from '@/components/cards/ProductCard';
-import { products } from '@/data/products';
 import { gsap } from '@/animations/gsap.config';
 import { SCROLL_START, LUXURY_EASE, STAGGER_TIGHT } from '@/animations/constants';
+import { getFeaturedProducts } from '@/services/product.service';
 
 type FilterCategory = 'all' | 'men' | 'women';
 
 export function ProductGrid() {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('all');
+  const [products, setProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredProducts =
-    activeFilter === 'all'
-      ? products.filter((p) => p.isFeatured)
-      : products.filter((p) => p.category === activeFilter && p.isFeatured);
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await getFeaturedProducts({ 
+          category: activeFilter === 'all' ? undefined : activeFilter,
+          limit: 8 
+        });
+        // Assuming response.data.data holds the array of products
+        setProducts((response.data as any).data || []);
+      } catch (err) {
+        setError('Failed to load featured products.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [activeFilter]);
 
   const filters: { label: string; value: FilterCategory }[] = [
     { label: 'All', value: 'all' },
@@ -27,6 +46,8 @@ export function ProductGrid() {
   ];
 
   useEffect(() => {
+    if (isLoading || error || products.length === 0) return;
+
     const ctx = gsap.context(() => {
       // Title reveal
       const title = sectionRef.current?.querySelector('.grid-title');
@@ -63,7 +84,7 @@ export function ProductGrid() {
     }, sectionRef);
 
     return () => ctx.revert();
-  }, [activeFilter]);
+  }, [activeFilter, products, isLoading, error]);
 
   return (
     <Section id="products" spacing="large" ref={sectionRef}>
@@ -101,14 +122,28 @@ export function ProductGrid() {
           </div>
         </div>
 
-        {/* Product grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10 sm:gap-y-12">
-          {filteredProducts.map((product) => (
-            <div key={product.id} className="product-card-item">
-              <ProductCard product={product} />
-            </div>
-          ))}
-        </div>
+        {/* State handling / Product grid */}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20">
+            <Typography variant="body" muted>Loading featured pieces...</Typography>
+          </div>
+        ) : error ? (
+          <div className="flex justify-center items-center py-20 text-red-500">
+            <Typography variant="body">{error}</Typography>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="flex justify-center items-center py-20">
+            <Typography variant="body" muted>No featured products found for this category.</Typography>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10 sm:gap-y-12">
+            {products.map((product) => (
+              <div key={product.id || product._id} className="product-card-item">
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </div>
+        )}
       </Container>
     </Section>
   );

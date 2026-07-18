@@ -1,20 +1,19 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
 import { Typography } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
 import { Divider } from '@/components/ui/Divider';
-import { TryOnModal } from '@/components/ai/TryOnModal';
 import { EditorialPlaceholder } from '@/components/placeholders/EditorialPlaceholder';
 import { gsap, ScrollTrigger } from '@/animations/gsap.config';
 import { SCROLL_START, LUXURY_EASE, REVEAL_EASE, DURATION_SLOW } from '@/animations/constants';
 
 export function AITryOn() {
   const sectionRef = useRef<HTMLDivElement>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -116,13 +115,11 @@ export function AITryOn() {
               </div>
 
               <div className="ai-reveal mt-4">
-                <Button
-                  variant="gold"
-                  size="lg"
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  Try AI Fitting
-                </Button>
+                <Link href="/men">
+                  <Button variant="gold" size="lg">
+                    Discover Collection
+                  </Button>
+                </Link>
               </div>
             </div>
 
@@ -139,11 +136,6 @@ export function AITryOn() {
           </div>
         </Container>
       </Section>
-
-      <TryOnModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
     </>
   );
 }

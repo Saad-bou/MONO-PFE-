@@ -20,7 +20,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Container } from '@/components/layout/Container';
@@ -36,9 +36,11 @@ import { ProductCard } from '@/components/cards/ProductCard';
 import { GalleryPlaceholder } from '@/components/placeholders/GalleryPlaceholder';
 import Image from 'next/image';
 import { TryOnModal } from '@/components/ai/TryOnModal';
-import { products } from '@/data/products';
+import { getProductBySlug, getProducts } from '@/services/product.service';
 import { useCartStore } from '@/store/useCartStore';
 import { useWishlistStore } from '@/store/useWishlistStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useTryOnStore } from '@/store/useTryOnStore';
 import { formatPrice } from '@/lib/utils';
 import { gsap } from '@/animations/gsap.config';
 import {
@@ -49,8 +51,13 @@ import {
 
 export default function ProductPage() {
   const params = useParams();
+  const router = useRouter();
   const slug = params.slug as string;
-  const product = products.find((p) => p.slug === slug);
+  
+  const [product, setProduct] = useState<any>(null);
+  const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [activeColor, setActiveColor] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -69,7 +76,7 @@ export default function ProductPage() {
   ];
 
   useEffect(() => {
-    if (isEssentialTee && product) {
+    if (isEssentialTee && product && product.colors && product.colors[activeColor]) {
       const colorName = product.colors[activeColor].name.toLowerCase();
       if (colorName === 'onyx') setActiveImage(0);
       else if (colorName === 'ivory') setActiveImage(2);
@@ -77,18 +84,50 @@ export default function ProductPage() {
     }
   }, [activeColor, isEssentialTee, product]);
 
+  useEffect(() => {
+    const fetchProductData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await getProductBySlug(slug);
+        // transformSingleResponse mutates res.data.data in-place;
+        // axios response shape: { data: { success, data: <product> } }
+        const fetchedProduct = (response as any).data?.data || (response as any).data;
+        if (!fetchedProduct || !fetchedProduct.id) throw new Error('Not found');
+        setProduct(fetchedProduct);
+        
+        try {
+          // category is already normalized to a slug string by transformProduct
+          const categorySlug = typeof fetchedProduct.category === 'string'
+            ? fetchedProduct.category
+            : fetchedProduct.category?.slug || '';
+          const relatedRes = await getProducts({ category: categorySlug, limit: 5 });
+          let related = (relatedRes as any).data?.data || (relatedRes as any).data || [];
+          related = related.filter((p: any) => p.id !== fetchedProduct.id).slice(0, 4);
+          setRelatedProducts(related);
+        } catch (e) {
+          // silently fail related products
+        }
+      } catch (err) {
+        setError('Failed to load product details.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProductData();
+  }, [slug]);
+
   const contentRef = useRef<HTMLDivElement>(null);
   const relatedRef = useRef<HTMLDivElement>(null);
 
   const addItem = useCartStore((state) => state.addItem);
   const { toggleItem, isInWishlist } = useWishlistStore();
-
-  const relatedProducts = products
-    .filter((p) => p.id !== product?.id && p.category === product?.category)
-    .slice(0, 4);
+  const { isAuthenticated } = useAuthStore();
+  const selectProduct = useTryOnStore((state) => state.selectProduct);
 
   // Content fade up
   useEffect(() => {
+    if (isLoading || error || !product) return;
     const ctx = gsap.context(() => {
       const elements = contentRef.current?.querySelectorAll('.product-reveal');
       if (elements) {
@@ -101,10 +140,11 @@ export default function ProductPage() {
     }, contentRef);
 
     return () => ctx.revert();
-  }, [slug]);
+  }, [slug, isLoading, error, product]);
 
   // Related products stagger
   useEffect(() => {
+    if (isLoading || error || !product) return;
     const ctx = gsap.context(() => {
       const cards = relatedRef.current?.querySelectorAll('.related-card');
       if (cards && cards.length > 0) {
@@ -117,14 +157,24 @@ export default function ProductPage() {
     }, relatedRef);
 
     return () => ctx.revert();
-  }, [slug]);
+  }, [slug, isLoading, error, product]);
 
   const handleAddToBag = () => {
     if (!product || !selectedSize) return;
+
+    // Resolve variantId by matching the selected color+size in product.variants
+    const selectedColorName = product.colors?.[activeColor]?.name || '';
+    const matchedVariant = product.variants?.find(
+      (v: any) =>
+        v.color?.name?.toLowerCase() === selectedColorName.toLowerCase() &&
+        v.size?.name?.toLowerCase() === selectedSize.toLowerCase()
+    );
+
     addItem({
+      variantId: matchedVariant?.id || undefined,
       productId: product.id,
       name: product.name,
-      color: product.colors[activeColor].name,
+      color: selectedColorName,
       size: selectedSize,
       price: product.price,
       quantity: 1,
@@ -133,7 +183,18 @@ export default function ProductPage() {
     setTimeout(() => setAddedToBag(false), 2000);
   };
 
-  if (!product) {
+  const handleTryOn = () => {
+    if (!isAuthenticated) {
+      router.push(`/login?callbackUrl=/product/${slug}`);
+      return;
+    }
+    if (product?.id) {
+      selectProduct(product.id);
+      setIsTryOnOpen(true);
+    }
+  };
+
+  if (isLoading) {
     return (
       <>
         <Navbar />
@@ -141,8 +202,26 @@ export default function ProductPage() {
           <Section spacing="large" className="pt-[120px]">
             <Container>
               <div className="text-center py-20">
-                <Typography variant="h2" className="mb-4">Product not found</Typography>
-                <Typography variant="body" muted>The product you're looking for doesn't exist.</Typography>
+                <Typography variant="body" muted>Loading product details...</Typography>
+              </div>
+            </Container>
+          </Section>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <>
+        <Navbar />
+        <main>
+          <Section spacing="large" className="pt-[120px]">
+            <Container>
+              <div className="text-center py-20">
+                <Typography variant="h2" className="mb-4">{error ? 'Error' : 'Product not found'}</Typography>
+                <Typography variant="body" muted>{error || "The product you're looking for doesn't exist."}</Typography>
               </div>
             </Container>
           </Section>
@@ -256,10 +335,10 @@ export default function ProductPage() {
                 {/* Color Selector */}
                 <div className="product-reveal">
                   <Typography variant="label" muted className="mb-3">
-                    Color — {product.colors[activeColor].name}
+                    Color — {product.colors && product.colors[activeColor] ? product.colors[activeColor].name : ''}
                   </Typography>
                   <div className="flex items-center gap-3">
-                    {product.colors.map((color, index) => (
+                    {product.colors && product.colors.map((color: any, index: number) => (
                       <ColorSwatch
                         key={color.name}
                         color={color.hex}
@@ -282,7 +361,7 @@ export default function ProductPage() {
                     </button>
                   </div>
                   <SizeSelector
-                    sizes={product.sizes}
+                    sizes={product.sizes || []}
                     selectedSize={selectedSize}
                     onSelect={setSelectedSize}
                   />
@@ -315,7 +394,7 @@ export default function ProductPage() {
                       variant="gold"
                       size="lg"
                       className="flex-shrink-0"
-                      onClick={() => setIsTryOnOpen(true)}
+                      onClick={handleTryOn}
                     >
                       AI Try-On
                     </Button>

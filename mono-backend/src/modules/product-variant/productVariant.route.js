@@ -13,7 +13,7 @@ productVariantRouter.get("/:id", productVariantController.getOne);
 productVariantRouter.post(
   "/",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   productVariantValidation.validateProductVariantPayload,
   productVariantController.create,
 );
@@ -21,7 +21,7 @@ productVariantRouter.post(
 productVariantRouter.put(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   productVariantValidation.validateProductVariantPayload,
   productVariantController.update,
 );
@@ -29,7 +29,7 @@ productVariantRouter.put(
 productVariantRouter.delete(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   productVariantController.remove,
 );
 

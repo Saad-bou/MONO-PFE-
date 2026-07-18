@@ -18,7 +18,7 @@
  * Hero fadeUp, editorial image maskReveal, products staggerUp
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Container } from '@/components/layout/Container';
@@ -27,7 +27,7 @@ import { Typography } from '@/components/ui/Typography';
 import { Divider } from '@/components/ui/Divider';
 import { ProductCard } from '@/components/cards/ProductCard';
 import Image from 'next/image';
-import { products } from '@/data/products';
+import { getProducts } from '@/services/product.service';
 import { gsap } from '@/animations/gsap.config';
 import {
   SCROLL_START,
@@ -41,7 +41,21 @@ export default function SalePage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const saleProducts = products.filter((p) => p.originalPrice);
+  const [saleProducts, setSaleProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getProducts({ sort: 'newest', limit: 50 })
+      .then((res) => {
+        const all: any[] = (res as any).data?.data || [];
+        // Filter to products that have an originalPrice (sale items)
+        const onSale = all.filter((p: any) => p.originalPrice && Number(p.originalPrice) > 0);
+        setSaleProducts(onSale);
+      })
+      .catch(() => setError('Failed to load sale products.'))
+      .finally(() => setIsLoading(false));
+  }, []);
 
   // Hero animations
   useEffect(() => {
@@ -76,6 +90,7 @@ export default function SalePage() {
 
   // Product cards stagger
   useEffect(() => {
+    if (isLoading || saleProducts.length === 0) return;
     const ctx = gsap.context(() => {
       const sectionTitle = gridRef.current?.querySelector('.section-title');
       if (sectionTitle) {
@@ -104,7 +119,26 @@ export default function SalePage() {
     }, gridRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [isLoading, saleProducts]);
+
+  if (isLoading) {
+    return (
+      <>
+        <Navbar />
+        <main>
+          <Section spacing="large" className="pt-[120px]">
+            <Container>
+              <div className="text-center py-20">
+                <Typography variant="body" muted>Loading curated selection...</Typography>
+              </div>
+            </Container>
+          </Section>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
 
   return (
     <>

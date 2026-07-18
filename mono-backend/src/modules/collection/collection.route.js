@@ -13,7 +13,7 @@ collectionRouter.get("/:id", collectionController.getOne);
 collectionRouter.post(
   "/",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   collectionValidation.validateCollectionPayload,
   collectionController.create,
 );
@@ -21,7 +21,7 @@ collectionRouter.post(
 collectionRouter.put(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   collectionValidation.validateCollectionPayload,
   collectionController.update,
 );
@@ -29,7 +29,7 @@ collectionRouter.put(
 collectionRouter.delete(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   collectionController.remove,
 );
 

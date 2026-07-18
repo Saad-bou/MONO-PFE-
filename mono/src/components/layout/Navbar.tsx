@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { useUIStore } from '@/store/useUIStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useWishlistStore } from '@/store/useWishlistStore';
+import { useAuthStore } from '@/store/useAuthStore';
 import { navItems } from '@/data/navigation';
 import { Logo } from '@/components/ui/Logo';
 import { NavLink } from './NavLink';
@@ -18,8 +20,22 @@ export function Navbar() {
   const { isMobileMenuOpen, toggleMobileMenu, closeMobileMenu, openSearch } = useUIStore();
   const cartCount = useCartStore((state) => state.getCount());
   const wishlistCount = useWishlistStore((state) => state.getCount());
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const logout = useAuthStore((state) => state.logout);
+  const clearCart = useCartStore((state) => state.clearCart);
+  const router = useRouter();
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  const handleLogout = () => {
+    logout();
+    clearCart();
+    closeMobileMenu();
+    setIsProfileMenuOpen(false);
+    router.replace('/');
+  };
 
   const isTransparent = isAtTop && !isMobileMenuOpen;
   const isHidden = scrollDirection === 'down' && !isAtTop && !isMobileMenuOpen;
@@ -36,6 +52,22 @@ export function Navbar() {
       );
     }
   }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProfileMenuOpen]);
 
   const leftNavItems = navItems.filter((item) => item.position === 'left');
   const rightNavItems = navItems.filter((item) => item.position === 'right');
@@ -108,11 +140,29 @@ export function Navbar() {
                 href="/bag"
                 badge={cartCount}
               />
-              <IconButton
-                icon="profile"
-                label="Profile"
-                href="/profile"
-              />
+              <div className="relative" ref={profileMenuRef}>
+                <IconButton
+                  icon="profile"
+                  label="Profile"
+                  href={isAuthenticated ? undefined : '/login'}
+                  onClick={
+                    isAuthenticated
+                      ? () => setIsProfileMenuOpen((open) => !open)
+                      : undefined
+                  }
+                />
+                {isAuthenticated && isProfileMenuOpen && (
+                  <div className="absolute top-full right-0 mt-1 bg-white border border-mono-border py-2 min-w-[120px]">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 font-nav text-[14px] uppercase tracking-[0.12em] font-bold text-mono-black hover:text-mono-gray transition-colors duration-300"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -153,13 +203,30 @@ export function Navbar() {
             >
               Wishlist
             </Link>
-            <Link
-              href="/profile"
-              onClick={closeMobileMenu}
-              className="font-nav text-[14px] uppercase tracking-[0.12em] font-bold text-mono-black hover:text-mono-gray transition-colors duration-300"
-            >
-              Profile
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <span
+                  onClick={closeMobileMenu}
+                  className="font-nav text-[14px] uppercase tracking-[0.12em] font-bold text-mono-black hover:text-mono-gray transition-colors duration-300 cursor-pointer"
+                >
+                  Profile
+                </span>
+                <span
+                  onClick={handleLogout}
+                  className="font-nav text-[14px] uppercase tracking-[0.12em] font-bold text-mono-black hover:text-mono-gray transition-colors duration-300 cursor-pointer"
+                >
+                  Logout
+                </span>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                onClick={closeMobileMenu}
+                className="font-nav text-[14px] uppercase tracking-[0.12em] font-bold text-mono-black hover:text-mono-gray transition-colors duration-300"
+              >
+                Profile
+              </Link>
+            )}
           </div>
         </div>
       )}

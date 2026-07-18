@@ -27,7 +27,6 @@ import { Divider } from '@/components/ui/Divider';
 import { QuantitySelector } from '@/components/ui/QuantitySelector';
 import { ProductPlaceholder } from '@/components/placeholders/ProductPlaceholder';
 import Image from 'next/image';
-import { products } from '@/data/products';
 import { useCartStore } from '@/store/useCartStore';
 import { formatPrice } from '@/lib/utils';
 import { gsap } from '@/animations/gsap.config';
@@ -91,11 +90,11 @@ export default function BagPage() {
                 <div className="lg:col-span-7">
                   <div className="flex flex-col">
                     {items.map((item, index) => {
-                      const product = products.find(p => p.id === item.productId);
-                      const isEssentialTee = product?.slug === 'essential-oversized-tee';
+                      // Detect Essential Tee by name (cart already stores product name)
+                      const isEssentialTee = item.name.toLowerCase().includes('essential oversized tee');
                       const colorName = item.color.toLowerCase();
-                      const imageSrc = isEssentialTee 
-                        ? `/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-${colorName === 'onyx' ? 'main-onyx' : 'gallery-' + colorName}.webp` 
+                      const imageSrc = isEssentialTee
+                        ? `/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-${colorName === 'onyx' ? 'main-onyx' : 'gallery-' + colorName}.webp`
                         : null;
 
                       return (
@@ -201,9 +200,11 @@ export default function BagPage() {
                       </Typography>
                     </div>
 
-                    <Button variant="primary" size="lg" fullWidth className="mb-3">
-                      Proceed to Checkout
-                    </Button>
+                    <Link href="/checkout">
+                      <Button variant="primary" size="lg" fullWidth className="mb-3">
+                        Proceed to Checkout
+                      </Button>
+                    </Link>
 
                     <Typography variant="caption" muted className="text-center block">
                       Taxes calculated at checkout

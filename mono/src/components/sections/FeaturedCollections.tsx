@@ -1,18 +1,42 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Container } from '@/components/layout/Container';
 import { Section } from '@/components/layout/Section';
 import { Typography } from '@/components/ui/Typography';
 import { CollectionCard } from '@/components/cards/CollectionCard';
-import { collections } from '@/data/collections';
+import { getCollections } from '@/services/collection.service';
 import { gsap } from '@/animations/gsap.config';
 import { SCROLL_START, LUXURY_EASE, STAGGER_BASE } from '@/animations/constants';
 
 export function FeaturedCollections() {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const [collections, setCollections] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const fetchCollections = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await getCollections({ isFeatured: true, limit: 4 });
+        const data: any[] = (response.data as any).data || [];
+        const featured = data.filter((c: any) => c.isFeatured).slice(0, 4);
+        setCollections(featured);
+      } catch (err) {
+        setError('Failed to load featured campaigns.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCollections();
+  }, []);
+
+  useEffect(() => {
+    if (isLoading || error || collections.length === 0) return;
+
     const ctx = gsap.context(() => {
       // Title reveal
       const title = sectionRef.current?.querySelector('.collections-title');
@@ -49,7 +73,7 @@ export function FeaturedCollections() {
     }, sectionRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [isLoading, error, collections]);
 
   return (
     <Section id="collections" spacing="large" ref={sectionRef}>
@@ -70,13 +94,27 @@ export function FeaturedCollections() {
         </div>
 
         {/* Collection grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
-          {collections.map((collection) => (
-            <div key={collection.id} className="collection-card">
-              <CollectionCard collection={collection} href={`/men/${collection.slug}`} />
-            </div>
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20">
+            <Typography variant="body" muted>Loading featured campaigns...</Typography>
+          </div>
+        ) : error ? (
+          <div className="flex justify-center items-center py-20 text-red-500">
+            <Typography variant="body">{error}</Typography>
+          </div>
+        ) : collections.length === 0 ? (
+          <div className="flex justify-center items-center py-20">
+            <Typography variant="body" muted>No featured campaigns found.</Typography>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
+            {collections.map((collection) => (
+              <div key={collection.id} className="collection-card">
+                <CollectionCard collection={collection} href={`/men/${collection.slug}`} />
+              </div>
+            ))}
+          </div>
+        )}
       </Container>
     </Section>
   );

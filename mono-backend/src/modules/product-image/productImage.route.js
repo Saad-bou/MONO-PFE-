@@ -14,7 +14,7 @@ productImageRouter.get("/:id", productImageController.getOne);
 productImageRouter.post(
   "/",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   productImageValidation.validateProductImagePayload,
   productImageController.create,
 );
@@ -22,7 +22,7 @@ productImageRouter.post(
 productImageRouter.put(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   productImageValidation.validateProductImagePayload,
   productImageController.update,
 );
@@ -30,7 +30,7 @@ productImageRouter.put(
 productImageRouter.delete(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   productImageController.remove,
 );
 

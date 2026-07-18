@@ -32,7 +32,7 @@ productRouter.get("/:id", productController.getOne);
 productRouter.post(
   "/",
   authMiddleware,
-  // requireRole("ADMIN"),
+   requireRole("ADMIN"),
   productValidation.validateProductPayload,
   productController.create,
 );
@@ -40,7 +40,7 @@ productRouter.post(
 productRouter.put(
   "/:id",
   authMiddleware,
-  // requireRole("ADMIN"),
+   requireRole("ADMIN"),
   productValidation.validateProductPayload,
   productController.update,
 );
@@ -48,7 +48,7 @@ productRouter.put(
 productRouter.delete(
   "/:id",
   authMiddleware,
-  // requireRole("ADMIN"),
+   requireRole("ADMIN"),
   productController.remove,
 );
 

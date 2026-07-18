@@ -13,7 +13,7 @@ colorRouter.get("/:id", colorController.getOne);
 colorRouter.post(
   "/",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   colorValidation.validateColorPayload,
   colorController.create,
 );
@@ -21,7 +21,7 @@ colorRouter.post(
 colorRouter.put(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   colorValidation.validateColorPayload,
   colorController.update,
 );
@@ -29,7 +29,7 @@ colorRouter.put(
 colorRouter.delete(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   colorController.remove,
 );
 

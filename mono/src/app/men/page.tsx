@@ -21,7 +21,7 @@
  * - Editorial images: maskReveal on scroll
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -31,7 +31,7 @@ import { Typography } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
 import { Divider } from '@/components/ui/Divider';
 import Image from 'next/image';
-import { collections } from '@/data/collections';
+import { getCollections } from '@/services/collection.service';
 import { gsap } from '@/animations/gsap.config';
 import {
   SCROLL_START,
@@ -42,12 +42,23 @@ import {
   STAGGER_TIGHT,
 } from '@/animations/constants';
 
-const menCollections = collections;
-
 export default function MenPage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const collectionsRef = useRef<HTMLDivElement>(null);
   const editorialRef = useRef<HTMLDivElement>(null);
+
+  const [menCollections, setMenCollections] = useState<any[]>([]);
+  const [isLoadingCollections, setIsLoadingCollections] = useState(true);
+
+  useEffect(() => {
+    getCollections()
+      .then((res) => {
+        const data: any[] = (res.data as any).data || [];
+        setMenCollections(data);
+      })
+      .catch(() => setMenCollections([]))
+      .finally(() => setIsLoadingCollections(false));
+  }, []);
 
   // Hero animations
   useEffect(() => {
@@ -98,6 +109,7 @@ export default function MenPage() {
 
   // Collection cards stagger
   useEffect(() => {
+    if (isLoadingCollections || menCollections.length === 0) return;
     const ctx = gsap.context(() => {
       const title = collectionsRef.current?.querySelector('.section-title');
       if (title) {
@@ -119,7 +131,7 @@ export default function MenPage() {
     }, collectionsRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [menCollections, isLoadingCollections]);
 
   // Editorial section animations
   useEffect(() => {

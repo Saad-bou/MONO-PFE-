@@ -13,7 +13,7 @@
  * Cards staggerUp on load
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/Button';
 import { Divider } from '@/components/ui/Divider';
 import { ProductCard } from '@/components/cards/ProductCard';
 import { useWishlistStore } from '@/store/useWishlistStore';
-import { products } from '@/data/products';
+import { getProducts } from '@/services/product.service';
 import { gsap } from '@/animations/gsap.config';
 import { LUXURY_EASE, STAGGER_TIGHT } from '@/animations/constants';
 
@@ -32,10 +32,25 @@ export default function WishlistPage() {
   const { productIds } = useWishlistStore();
   const gridRef = useRef<HTMLDivElement>(null);
 
-  const wishlistProducts = products.filter((p) => productIds.includes(p.id));
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Stagger cards on mount / change
+  // Fetch all products once; wishlist filter is client-side
   useEffect(() => {
+    getProducts({ limit: 100 })
+      .then((res) => {
+        const data: any[] = (res as any).data?.data || [];
+        setAllProducts(data);
+      })
+      .catch(() => setAllProducts([]))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const wishlistProducts = allProducts.filter((p: any) => productIds.includes(p.id));
+
+  // Stagger cards when wishlist data changes
+  useEffect(() => {
+    if (isLoading || wishlistProducts.length === 0) return;
     const ctx = gsap.context(() => {
       const cards = gridRef.current?.querySelectorAll('.wishlist-card');
       if (cards && cards.length > 0) {
@@ -48,7 +63,7 @@ export default function WishlistPage() {
     }, gridRef);
 
     return () => ctx.revert();
-  }, [productIds]);
+  }, [productIds, isLoading, wishlistProducts.length]);
 
   return (
     <>

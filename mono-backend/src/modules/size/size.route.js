@@ -13,7 +13,7 @@ sizeRouter.get("/:id", sizeController.getOne);
 sizeRouter.post(
   "/",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   sizeValidation.validateSizePayload,
   sizeController.create,
 );
@@ -21,7 +21,7 @@ sizeRouter.post(
 sizeRouter.put(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   sizeValidation.validateSizePayload,
   sizeController.update,
 );
@@ -29,7 +29,7 @@ sizeRouter.put(
 sizeRouter.delete(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   sizeController.remove,
 );
 

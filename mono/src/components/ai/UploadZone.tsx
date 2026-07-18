@@ -8,22 +8,15 @@ import { Button } from '@/components/ui/Button';
 import { Divider } from '@/components/ui/Divider';
 
 export function UploadZone() {
-  const { session, setUploadedImage, setStatus, reset } = useTryOnStore();
+  const { session, error, submitTryOn, reset } = useTryOnStore();
   const [isDragging, setIsDragging] = useState(false);
 
   const processFile = useCallback(
     (file: File) => {
       if (!file.type.startsWith('image/')) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        setUploadedImage(reader.result as string);
-        // Simulate AI processing pipeline
-        setTimeout(() => setStatus('processing'), 500);
-        setTimeout(() => setStatus('complete'), 3500);
-      };
-      reader.readAsDataURL(file);
+      submitTryOn(file);
     },
-    [setUploadedImage, setStatus]
+    [submitTryOn]
   );
 
   const handleDrop = useCallback(
@@ -54,13 +47,15 @@ export function UploadZone() {
     setIsDragging(false);
   };
 
+  const isActive = session.status === 'uploading' || session.status === 'processing';
+
   return (
     <div className="flex flex-col items-center gap-8">
       {/* ── Upload Area / Preview ── */}
       <div
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
+        onDrop={!isActive ? handleDrop : undefined}
+        onDragOver={!isActive ? handleDragOver : undefined}
+        onDragLeave={!isActive ? handleDragLeave : undefined}
         className={cn(
           'relative w-full max-w-[440px] aspect-[3/4] border-2 border-dashed',
           'flex flex-col items-center justify-center gap-4',
@@ -69,8 +64,9 @@ export function UploadZone() {
           // State-based styles
           session.status === 'idle' && !isDragging && 'border-mono-border hover:border-mono-gold hover:bg-mono-gold/[0.02]',
           session.status === 'idle' && isDragging && 'border-mono-gold bg-mono-gold/[0.04] scale-[1.01]',
-          session.status === 'processing' && 'border-mono-black border-solid',
+          (session.status === 'uploading' || session.status === 'processing') && 'border-mono-black border-solid',
           session.status === 'complete' && 'border-mono-gold/40 border-solid',
+          session.status === 'error' && 'border-red-400 border-solid',
         )}
       >
         {/* ── Idle State ── */}
@@ -111,6 +107,24 @@ export function UploadZone() {
           </>
         )}
 
+        {/* ── Uploading State ── */}
+        {session.status === 'uploading' && (
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-4">
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 border-2 border-white/20 rounded-full" />
+              <div className="absolute inset-0 border-2 border-transparent border-t-white rounded-full animate-spin" />
+            </div>
+            <div className="text-center">
+              <Typography variant="body" className="!text-[14px] !text-white mb-1">
+                Uploading your photo
+              </Typography>
+              <Typography variant="caption" className="!text-white/60">
+                Please wait...
+              </Typography>
+            </div>
+          </div>
+        )}
+
         {/* ── Processing State — Show uploaded image with overlay ── */}
         {session.status === 'processing' && session.uploadedImage && (
           <>
@@ -146,12 +160,12 @@ export function UploadZone() {
           </>
         )}
 
-        {/* ── Complete State — Show result ── */}
-        {session.status === 'complete' && session.uploadedImage && (
+        {/* ── Complete State — Show AI result image ── */}
+        {session.status === 'complete' && session.resultImage && (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={session.uploadedImage}
+              src={session.resultImage}
               alt="AI Try-On result"
               className="absolute inset-0 w-full h-full object-cover"
             />
@@ -167,9 +181,34 @@ export function UploadZone() {
             </div>
           </>
         )}
+
+        {/* ── Error State ── */}
+        {session.status === 'error' && (
+          <div className="flex flex-col items-center justify-center gap-4 px-6 text-center">
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              className="text-red-400"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <Typography variant="caption" className="!text-red-400">
+              {error ?? 'An error occurred. Please try again.'}
+            </Typography>
+            <Button variant="ghost" size="md" onClick={reset}>
+              Try Again
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* ── Actions ── */}
+      {/* ── Actions (complete state) ── */}
       {session.status === 'complete' && (
         <div className="flex flex-col items-center gap-3 w-full max-w-[440px]">
           <Divider />
@@ -184,14 +223,15 @@ export function UploadZone() {
         </div>
       )}
 
-      {/* ── Instructions ── */}
+      {/* ── Step Indicators ── */}
       <div className="text-center max-w-[360px]">
         <div className="flex items-center justify-center gap-6 mb-4">
-          {['Upload Photo', 'AI Processing', 'See Result'].map((step, i) => (
+          {(['Upload Photo', 'AI Processing', 'See Result'] as const).map((step, i) => (
             <div key={step} className="flex items-center gap-2">
               <span className={cn(
                 'w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-nav font-bold',
                 (session.status === 'idle' && i === 0) ||
+                (session.status === 'uploading' && i === 0) ||
                 (session.status === 'processing' && i === 1) ||
                 (session.status === 'complete' && i === 2)
                   ? 'bg-mono-black text-white'

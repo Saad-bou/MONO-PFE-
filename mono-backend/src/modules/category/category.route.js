@@ -13,7 +13,7 @@ categoryRouter.get("/:id", categoryController.getOne);
 categoryRouter.post(
   "/",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   categoryValidation.validateCategoryPayload,
   categoryController.create,
 );
@@ -21,7 +21,7 @@ categoryRouter.post(
 categoryRouter.put(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   categoryValidation.validateCategoryPayload,
   categoryController.update,
 );
@@ -29,7 +29,7 @@ categoryRouter.put(
 categoryRouter.delete(
   "/:id",
   authMiddleware,
-  //requireRole("ADMIN"),
+  requireRole("ADMIN"),
   categoryController.remove,
 );
 

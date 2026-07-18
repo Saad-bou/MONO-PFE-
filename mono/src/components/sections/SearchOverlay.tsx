@@ -21,13 +21,12 @@ import { Typography } from '@/components/ui/Typography';
 import { Divider } from '@/components/ui/Divider';
 import { ProductCard } from '@/components/cards/ProductCard';
 import { useUIStore } from '@/store/useUIStore';
-import { products } from '@/data/products';
-import { collections } from '@/data/collections';
+import { getFeaturedProducts, searchProducts } from '@/services/product.service';
+import { getCollections } from '@/services/collection.service';
 import { gsap } from '@/animations/gsap.config';
 import { LUXURY_EASE } from '@/animations/constants';
 
 const recentSearches = ['Oversized tee', 'Black trousers', 'Linen shirt', 'Wool blazer'];
-const popularProducts = products.filter((p) => p.isFeatured).slice(0, 4);
 
 export function SearchOverlay() {
   const { isSearchOpen, searchQuery, setSearchQuery, closeSearch } = useUIStore();
@@ -35,16 +34,50 @@ export function SearchOverlay() {
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Search results
-  const searchResults = useMemo(() => {
-    if (!searchQuery || searchQuery.length < 2) return [];
-    const q = searchQuery.toLowerCase();
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.tags.some((t) => t.toLowerCase().includes(q)) ||
-        p.description.toLowerCase().includes(q)
-    ).slice(0, 6);
+  // ── Static data fetched once on mount ──
+  const [popularProducts, setPopularProducts] = useState<any[]>([]);
+  const [suggestedCollections, setSuggestedCollections] = useState<any[]>([]);
+  const [isLoadingStatic, setIsLoadingStatic] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      getFeaturedProducts({ limit: 4 }),
+      getCollections({ limit: 4 }),
+    ])
+      .then(([prodRes, colRes]) => {
+        const prods: any[] = (prodRes as any).data?.data || [];
+        setPopularProducts(prods.slice(0, 4));
+        const cols: any[] = (colRes.data as any).data || [];
+        setSuggestedCollections(cols.slice(0, 4));
+      })
+      .catch(() => {
+        // silently fail — overlay still works without suggestions
+      })
+      .finally(() => setIsLoadingStatic(false));
+  }, []);
+
+  // ── Live search via backend ──
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    if (!searchQuery || searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    const debounce = setTimeout(() => {
+      setIsSearching(true);
+      searchProducts({ search: searchQuery, limit: 6 })
+        .then((res) => {
+          const results: any[] = (res as any).data?.data || [];
+          setSearchResults(results);
+        })
+        .catch(() => setSearchResults([]))
+        .finally(() => setIsSearching(false));
+    }, 300);
+
+    return () => clearTimeout(debounce);
   }, [searchQuery]);
 
   // Animate in
@@ -147,7 +180,12 @@ export function SearchOverlay() {
           <Divider className="mt-4" />
         </div>
 
-        {showResults && searchResults.length > 0 ? (
+        {showResults && isSearching ? (
+          /* Searching state */
+          <div className="search-reveal pb-16 text-center py-12">
+            <Typography variant="body" muted>Searching...</Typography>
+          </div>
+        ) : showResults && searchResults.length > 0 ? (
           /* Search Results */
           <div className="search-reveal pb-16">
             <Typography variant="label" muted className="mb-6">
@@ -193,44 +231,48 @@ export function SearchOverlay() {
             </div>
 
             {/* Suggested Collections */}
-            <div className="search-reveal mb-12 sm:mb-16">
-              <Typography variant="label" muted className="mb-5">
-                Collections
-              </Typography>
-              <div className="flex flex-col gap-3">
-                {collections.slice(0, 4).map((collection) => (
-                  <Link
-                    key={collection.id}
-                    href={`/men/${collection.slug}`}
-                    onClick={handleClose}
-                    className="group flex items-center justify-between py-2"
-                  >
-                    <Typography variant="h4" className="group-hover:text-mono-gray transition-colors duration-300">
-                      {collection.name}
-                    </Typography>
-                    <Typography variant="caption" muted>
-                      {collection.productCount} pieces
-                    </Typography>
-                  </Link>
-                ))}
+            {suggestedCollections.length > 0 && (
+              <div className="search-reveal mb-12 sm:mb-16">
+                <Typography variant="label" muted className="mb-5">
+                  Collections
+                </Typography>
+                <div className="flex flex-col gap-3">
+                  {suggestedCollections.map((collection) => (
+                    <Link
+                      key={collection.id}
+                      href={`/men/${collection.slug}`}
+                      onClick={handleClose}
+                      className="group flex items-center justify-between py-2"
+                    >
+                      <Typography variant="h4" className="group-hover:text-mono-gray transition-colors duration-300">
+                        {collection.name}
+                      </Typography>
+                      <Typography variant="caption" muted>
+                        {collection.productCount > 0 ? `${collection.productCount} pieces` : 'Explore'}
+                      </Typography>
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <Divider className="search-reveal mb-12 sm:mb-16" />
 
             {/* Popular Products */}
-            <div className="search-reveal pb-16">
-              <Typography variant="label" muted className="mb-8">
-                Popular Right Now
-              </Typography>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-10">
-                {popularProducts.map((product) => (
-                  <div key={product.id} onClick={handleClose}>
-                    <ProductCard product={product} />
-                  </div>
-                ))}
+            {popularProducts.length > 0 && (
+              <div className="search-reveal pb-16">
+                <Typography variant="label" muted className="mb-8">
+                  Popular Right Now
+                </Typography>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-10">
+                  {popularProducts.map((product) => (
+                    <div key={product.id} onClick={handleClose}>
+                      <ProductCard product={product} />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </Container>
