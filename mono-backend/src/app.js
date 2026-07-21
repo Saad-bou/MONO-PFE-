@@ -22,18 +22,22 @@ const notFoundMiddleware = require("./middlewares/notFound.middleware");
 const errorMiddleware = require("./middlewares/error.middleware");
 const app = express();
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  // In development: no limit. In production: 200 req / 15 min per IP.
+  max: isProduction ? 200 : 0,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => !isProduction, // skip entirely in development
 });
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(cors());
-app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+app.use(morgan(isProduction ? "combined" : "dev"));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());

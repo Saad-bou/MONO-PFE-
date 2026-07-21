@@ -55,7 +55,7 @@ const products = [
     description: 'Tailored cargo trousers with hidden pockets and a tapered leg.',
     category: 'men',
     collection: 'black-edition',
-    colors: [{ name: 'Black', hex: '#111111' }, { name: 'Charcoal', hex: '#3D3D3D' }],
+    colors: [{ name: 'Olive', hex: '#556B2F' }, { name: 'Black', hex: '#111111' }, { name: 'Green', hex: '#2E8B57' }],
     sizes: [{ label: 'S', available: true }, { label: 'M', available: true }, { label: 'L', available: true }, { label: 'XL', available: true }],
   },
   {

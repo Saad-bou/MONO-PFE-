@@ -14,6 +14,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/store/useAuthStore';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Container } from '@/components/layout/Container';
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Divider } from '@/components/ui/Divider';
 import { ProductPlaceholder } from '@/components/placeholders/ProductPlaceholder';
+import { CartItemImage } from '@/components/ui/CartItemImage';
 import { useCartStore } from '@/store/useCartStore';
 import { formatPrice } from '@/lib/utils';
 import { gsap } from '@/animations/gsap.config';
@@ -42,8 +44,16 @@ interface CheckoutForm {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { isAuthenticated, isInitializing } = useAuthStore();
   const { items, getTotal, clearCart, syncFromBackend } = useCartStore();
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // ── Auth guard ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isInitializing && !isAuthenticated) {
+      router.replace('/login?callbackUrl=/checkout');
+    }
+  }, [isAuthenticated, isInitializing, router]);
 
   const [form, setForm] = useState<CheckoutForm>({
     email: '',
@@ -125,19 +135,20 @@ export default function CheckoutPage() {
   };
 
   // ── Image resolver (mirrors bag page logic) ────────────────────────────────
-  const resolveImage = (
-    name: string,
-    color: string,
-    image?: string | null
-  ): string | null => {
-    if (name.toLowerCase().includes('essential oversized tee')) {
-      const c = color.toLowerCase();
-      return `/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-${
-        c === 'onyx' ? 'main-onyx' : 'gallery-' + c
-      }.webp`;
-    }
-    return image ?? null;
-  };
+  // Removed resolveImage in favor of CartItemImage
+
+  // ── Auth initializing — hold render until token check completes ─────────────
+  if (isInitializing) {
+    return (
+      <>
+        <Navbar />
+        <main className="min-h-screen pt-[120px] flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-mono-border border-t-mono-black rounded-full animate-spin" />
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
   // ── Order confirmed screen ─────────────────────────────────────────────────
   if (orderPlaced) {
@@ -410,7 +421,6 @@ export default function CheckoutPage() {
                     {/* Product list */}
                     <div className="flex flex-col mb-6">
                       {items.map((item, idx) => {
-                        const src = resolveImage(item.name, item.color, item.image);
                         return (
                           <div key={`${item.productId}-${item.color}-${item.size}`}>
                             {idx === 0 && <Divider className="mb-0" />}
@@ -418,13 +428,7 @@ export default function CheckoutPage() {
 
                               {/* Thumbnail */}
                               <div className="w-[72px] flex-shrink-0">
-                                {src ? (
-                                  <div className="relative aspect-[3/4] w-full bg-mono-light overflow-hidden">
-                                    <Image src={src} alt={item.name} fill className="object-cover" />
-                                  </div>
-                                ) : (
-                                  <ProductPlaceholder />
-                                )}
+                                <CartItemImage item={item} />
                               </div>
 
                               {/* Meta */}

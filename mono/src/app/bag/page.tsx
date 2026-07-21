@@ -15,7 +15,7 @@
  * fadeUp entry, item removal with smooth transition
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -31,6 +31,7 @@ import { useCartStore } from '@/store/useCartStore';
 import { formatPrice } from '@/lib/utils';
 import { gsap } from '@/animations/gsap.config';
 import { LUXURY_EASE, STAGGER_TIGHT } from '@/animations/constants';
+import { CartItemImage } from '@/components/ui/CartItemImage';
 
 export default function BagPage() {
   const { items, removeItem, updateQuantity, getTotal, getCount } = useCartStore();
@@ -90,26 +91,13 @@ export default function BagPage() {
                 <div className="lg:col-span-7">
                   <div className="flex flex-col">
                     {items.map((item, index) => {
-                      // Detect Essential Tee by name (cart already stores product name)
-                      const isEssentialTee = item.name.toLowerCase().includes('essential oversized tee');
-                      const colorName = item.color.toLowerCase();
-                      const imageSrc = isEssentialTee
-                        ? `/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-${colorName === 'onyx' ? 'main-onyx' : 'gallery-' + colorName}.webp`
-                        : null;
-
                       return (
                       <div key={`${item.productId}-${item.color}-${item.size}`} className="bag-reveal">
                         {index === 0 && <Divider className="mb-0" />}
                         <div className="py-6 sm:py-8 flex gap-5 sm:gap-8">
                           {/* Product Image */}
                           <div className="w-[100px] sm:w-[120px] flex-shrink-0">
-                            {imageSrc ? (
-                              <div className="relative aspect-[3/4] w-full bg-mono-light overflow-hidden">
-                                <Image src={imageSrc} alt={item.name} fill className="object-cover" />
-                              </div>
-                            ) : (
-                              <ProductPlaceholder />
-                            )}
+                            <CartItemImage item={item} />
                           </div>
 
                           {/* Product Details */}

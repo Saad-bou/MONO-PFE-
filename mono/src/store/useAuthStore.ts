@@ -8,6 +8,7 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isInitializing: boolean;
   error: string | null;
   
   // Actions
@@ -23,13 +24,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   isAuthenticated: false,
   isLoading: false,
+  isInitializing: true,
   error: null,
 
   initializeAuth: async () => {
     if (typeof window === 'undefined') return;
     
+    set({ isInitializing: true });
     const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) return;
+    if (!token) {
+      set({ isInitializing: false });
+      return;
+    }
 
     set({ token });
 
@@ -39,6 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({
         user,
         isAuthenticated: true,
+        isInitializing: false,
       });
     } catch (error) {
       localStorage.removeItem(TOKEN_KEY);
@@ -46,6 +53,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         user: null,
         token: null,
         isAuthenticated: false,
+        isInitializing: false,
       });
     }
   },

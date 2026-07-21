@@ -21,6 +21,7 @@ export interface Product {
   collection: string;
   colors: ColorVariant[];
   sizes: Size[];
+  images: string[];
   tags: string[];
   isNew: boolean;
   isFeatured: boolean;

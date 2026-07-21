@@ -76,35 +76,50 @@ export function ProductCard({ product }: ProductCardProps) {
       <Link href={`/product/${product.slug}`} className="block">
         <div className="relative overflow-hidden mb-4 aspect-[3/4] bg-mono-light">
           <div ref={imageRef} className="absolute inset-0 w-full h-full">
-            {product.slug === 'essential-oversized-tee' ? (
-              <>
-                <Image
-                  src={`/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-${
-                    product.colors[activeColor].name.toLowerCase() === 'onyx' 
-                      ? 'main-onyx' 
-                      : `gallery-${product.colors[activeColor].name.toLowerCase()}`
-                  }.webp`}
-                  alt={product.name}
-                  fill
-                  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                  className={cn(
-                    "object-cover transition-opacity duration-500 ease-out",
-                    isHovered && product.colors[activeColor].name.toLowerCase() === 'onyx' ? "opacity-0" : "opacity-100"
-                  )}
-                />
-                {product.colors[activeColor].name.toLowerCase() === 'onyx' && (
-                  <Image
-                    src="/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-hover-onyx.webp"
-                    alt={`${product.name} hover`}
-                    fill
-                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                    className={cn(
-                      "object-cover transition-opacity duration-500 ease-out",
-                      isHovered ? "opacity-100" : "opacity-0"
+            {product.colors && product.colors.length > 0 ? (
+              (() => {
+                const colorName = product.colors[activeColor]?.name?.toLowerCase() || '';
+                const isMainColor = activeColor === 0;
+                
+                const displayImage = 
+                  product.images?.find(img => img.toLowerCase().includes(`main-${colorName}`)) ??
+                  product.images?.find(img => img.toLowerCase().includes(`gallery-${colorName}`)) ??
+                  (isMainColor ? product.images?.[0] : null) ?? 
+                  '';
+                  
+                const hoverImage = 
+                  product.images?.find(img => img.toLowerCase().includes(`hover-${colorName}`)) ?? 
+                  (isMainColor && product.images && product.images.length > 1 ? product.images[1] : null);
+
+                return (
+                  <>
+                    {displayImage && (
+                      <Image
+                        src={displayImage}
+                        alt={product.name}
+                        fill
+                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                        className={cn(
+                          "object-cover transition-opacity duration-500 ease-out",
+                          isHovered && hoverImage ? "opacity-0" : "opacity-100"
+                        )}
+                      />
                     )}
-                  />
-                )}
-              </>
+                    {hoverImage && (
+                      <Image
+                        src={hoverImage}
+                        alt={`${product.name} hover`}
+                        fill
+                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                        className={cn(
+                          "object-cover transition-opacity duration-500 ease-out",
+                          isHovered ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                    )}
+                  </>
+                );
+              })()
             ) : (
               <ProductPlaceholder />
             )}

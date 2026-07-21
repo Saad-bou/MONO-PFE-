@@ -65,24 +65,53 @@ export default function ProductPage() {
   const [activeImage, setActiveImage] = useState(0);
   const [addedToBag, setAddedToBag] = useState(false);
 
-  const isEssentialTee = product?.slug === 'essential-oversized-tee';
-  const teeImages = [
-    '/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-main-onyx.webp',
-    '/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-hover-onyx.webp',
-    '/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-gallery-ivory.webp',
-    '/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-gallery-slate.webp',
-    '/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-gallery-back-onyx.webp',
-    '/assets/products/essential-oversized-tee-men/essential-oversized-tee-men-gallery-closeup-onyx.webp',
-  ];
+  const productImages = React.useMemo(() => {
+    if (!product || !product.colors || product.colors.length === 0) return [];
+    
+    const basePath = `/assets/products/${product.slug}-${product.category}/${product.slug}-${product.category}`;
+    const mainColorObj = product.colors.find((c: any) => ['onyx', 'olive'].includes(c.name.toLowerCase())) || product.colors[0];
+    const mainColor = mainColorObj.name.toLowerCase();
+    
+    const otherColors = product.colors
+      .filter((c: any) => c.name.toLowerCase() !== mainColor)
+      .map((c: any) => c.name.toLowerCase());
+    
+    const images = [
+      `${basePath}-main-${mainColor}.webp`,
+      `${basePath}-hover-${mainColor}.webp`,
+      ...otherColors.map((color: string) => `${basePath}-gallery-${color}.webp`),
+      `${basePath}-gallery-back-${mainColor}.webp`,
+      `${basePath}-gallery-closeup-${mainColor}.webp`
+    ];
+    
+    return images.slice(0, 6);
+  }, [product]);
+
+  const stylingNoteImageIndex = React.useMemo(
+    () => Math.floor(Math.random() * 6),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [product?.slug]
+  );
 
   useEffect(() => {
-    if (isEssentialTee && product && product.colors && product.colors[activeColor]) {
+    if (product && product.colors && product.colors[activeColor]) {
       const colorName = product.colors[activeColor].name.toLowerCase();
-      if (colorName === 'onyx') setActiveImage(0);
-      else if (colorName === 'ivory') setActiveImage(2);
-      else if (colorName === 'slate') setActiveImage(3);
+      const mainColorObj = product.colors.find((c: any) => ['onyx', 'olive'].includes(c.name.toLowerCase())) || product.colors[0];
+      const mainColor = mainColorObj.name.toLowerCase();
+      
+      if (colorName === mainColor) {
+        setActiveImage(0);
+      } else {
+        const otherColors = product.colors
+          .filter((c: any) => c.name.toLowerCase() !== mainColor)
+          .map((c: any) => c.name.toLowerCase());
+        const colorIndex = otherColors.indexOf(colorName);
+        if (colorIndex !== -1) {
+          setActiveImage(2 + colorIndex);
+        }
+      }
     }
-  }, [activeColor, isEssentialTee, product]);
+  }, [activeColor, product]);
 
   useEffect(() => {
     const fetchProductData = async () => {
@@ -261,10 +290,10 @@ export default function ProductPage() {
               <div className="product-reveal">
                 {/* Main Image */}
                 <div className="mb-4">
-                  {isEssentialTee ? (
+                  {productImages.length > 0 ? (
                     <div className="relative aspect-[3/4] w-full bg-mono-light overflow-hidden">
                       <Image 
-                        src={teeImages[activeImage]} 
+                        src={productImages[activeImage]} 
                         alt={`${product.name} - View ${activeImage + 1}`}
                         fill
                         className="object-cover"
@@ -277,21 +306,21 @@ export default function ProductPage() {
                 </div>
 
                 {/* Thumbnail Strip */}
-                <div className={`grid ${isEssentialTee ? 'grid-cols-6' : 'grid-cols-4'} gap-3`}>
-                  {(isEssentialTee ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3]).map((index) => (
+                <div className="grid grid-cols-6 gap-3">
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
                     <button
                       key={index}
                       onClick={() => setActiveImage(index)}
-                      className={`cursor-pointer transition-all duration-300 relative ${!isEssentialTee ? '' : 'aspect-[3/4]'} ${
+                      className={`cursor-pointer transition-all duration-300 relative aspect-[3/4] ${
                         activeImage === index
                           ? 'ring-1 ring-mono-black ring-offset-2'
                           : 'opacity-60 hover:opacity-100'
                       }`}
                     >
-                      {isEssentialTee ? (
+                      {productImages.length > 0 ? (
                         <div className="relative w-full h-full bg-mono-light overflow-hidden">
                           <Image 
-                            src={teeImages[index]} 
+                            src={productImages[index]} 
                             alt={`${product.name} thumbnail ${index + 1}`}
                             fill
                             className="object-cover"
@@ -459,7 +488,18 @@ export default function ProductPage() {
                 </Typography>
               </div>
               <div>
-                <GalleryPlaceholder size="large" variant="dark" />
+                {productImages.length > 0 ? (
+                  <div className="relative aspect-[3/4] w-full bg-mono-light overflow-hidden">
+                    <Image
+                      src={productImages[stylingNoteImageIndex % productImages.length]}
+                      alt={`${product.name} — Styling`}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <GalleryPlaceholder size="large" variant="dark" />
+                )}
               </div>
             </div>
           </Container>
